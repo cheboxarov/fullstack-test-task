@@ -1,71 +1,56 @@
-from fastapi import FastAPI, HTTPException
-from fastapi import File, Form, UploadFile
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from starlette import status
-from src.schemas import AlertItem, FileItem, FileUpdate
-from src.service import create_file, delete_file, get_file, list_alerts, list_files, update_file, STORAGE_DIR
-from src.tasks import scan_file_for_threats
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from src.application.errors import ApplicationError
+from src.bootstrap.container import get_settings
+from src.bootstrap.storage import get_storage_dir
+from src.presentation.api.alerts import alerts_router
+from src.presentation.api.files import files_router
+from src.presentation.api.middleware import (
+    RequestIdMiddleware,
+    application_error_handler,
+    fallback_exception_handler,
+    http_exception_handler,
+    validation_error_handler,
+)
+
+
+STORAGE_DIR = get_storage_dir(get_settings())
 
 app = FastAPI()
+
+# Add RequestIdMiddleware as first middleware (before CORS)
+app.add_middleware(RequestIdMiddleware)
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3003",
+        "http://127.0.0.1:3003",
+        "http://localhost:3007",
+        "http://127.0.0.1:3007",
+        "http://frontend:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Register exception handlers
+app.add_exception_handler(ApplicationError, application_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, fallback_exception_handler)
 
-@app.get("/files", response_model=list[FileItem])
-async def list_files_view():
-    return await list_files()
-
-
-@app.get("/alerts", response_model=list[AlertItem])
-async def list_alerts_view():
-    return await list_alerts()
-
-
-@app.post("/files", response_model=FileItem, status_code=201)
-async def create_file_view(
-    title: str = Form(...),
-    file: UploadFile = File(...),
-):
-    file_item = await create_file(title=title, upload_file=file)
-    scan_file_for_threats.delay(file_item.id)
-    return file_item
+app.include_router(files_router)
+app.include_router(alerts_router)
 
 
-@app.get("/files/{file_id}", response_model=FileItem)
-async def get_file_view(file_id: str):
-    return await get_file(file_id)
-
-
-@app.patch("/files/{file_id}", response_model=FileItem)
-async def update_file_view(
-    file_id: str,
-    payload: FileUpdate,
-):
-    return await update_file(file_id=file_id, title=payload.title)
-
-
-@app.get("/files/{file_id}/download")
-async def download_file(file_id: str):
-    file_item = await get_file(file_id)
-    stored_path = STORAGE_DIR / file_item.stored_name
-    if not stored_path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stored file not found")
-    return FileResponse(
-        path=stored_path,
-        media_type=file_item.mime_type,
-        filename=file_item.original_name,
-    )
-
-
-@app.delete("/files/{file_id}", status_code=204)
-async def delete_file_view(file_id: str):
-    await delete_file(file_id)
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}

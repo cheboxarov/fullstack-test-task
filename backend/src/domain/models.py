@@ -1,32 +1,26 @@
+from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
 
-
-class FileItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+@dataclass(slots=True)
+class FileRecord:
     id: str
     title: str
     original_name: str
+    stored_name: str
     mime_type: str
     size: int
     processing_status: str
     scan_status: str | None
     scan_details: str | None
-    metadata_json: dict | None
+    metadata_json: dict[str, object] | None
     requires_attention: bool
     created_at: datetime
     updated_at: datetime
 
 
-class FileUpdate(BaseModel):
-    title: str
-
-
-class AlertItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+@dataclass(slots=True)
+class AlertRecord:
     id: int
     file_id: str
     level: str

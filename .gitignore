@@ -11,3 +11,19 @@ wheels/
 .idea
 **/.DS_Store
 backend/storage/*
+.planning/
+.env.e2e
+package-lock.json
+
+# Playwright / E2E
+test-results/
+playwright-report/
+playwright/.cache/
+screenshots/
+videos/
+traces/
+
+# Node
+node_modules/
+.next/
+

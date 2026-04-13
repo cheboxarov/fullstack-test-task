@@ -1,0 +1,13 @@
+# Playwright test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Test screenshots (only keep on failure)
+screenshots/
+
+# Videos
+videos/
+
+# Trace files
+traces/
